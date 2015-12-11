@@ -24,9 +24,16 @@ import json
 
 import time
 
-parser = argparse.ArgumentParser(description='Analyse some files.')
-parser.add_argument('folder', metavar='F', type=str, nargs='+',
-                   help='a path to the folder containing files to be analysed.')
+import os
+
+
+def get_hostname():
+    try:
+        with open("/etc/hostname", 'r') as f:
+            return f.read()
+    except IOError:
+        return "Unknown"
+
 
 
 def analyse_frame(frame):
@@ -43,41 +50,57 @@ def analyse_frame(frame):
 
 def analyse_folder(folder, final_output):
 
-    output = []
+    files = []
+    final_output["frames"] = {}
 
-    # This will NOT work currently - just for reference
-    for file in folder:
+    for file in os.listdir(folder):
+        # We don't want to add DSC files to the list, they can't be read by the xyc reader!
+        if not file.endswith(".dsc"):
+            files.append(file)
 
-        filename = "x" # to be implemented
+    for file in files:
 
-        frame = xycreader.read(file)
+        if file.endswith(".txt"):
+            filename = file[:-4]
+        else:
+            filename = file
+
+        frame = xycreader.read(folder + "/" + file)
 
         counts = analyse_frame(frame)
 
-        final_output["frames"] = {}
         final_output["frames"][filename] = {}
-        final_output["frames"]["filename"]["counts"] = counts
+        final_output["frames"][filename]["counts"] = counts
 
-        #f = open("counts.json", 'w')
-
-        #f.write(json.dumps()"\n")
-
-        #f.close()
+    return final_output
 
 
 if __name__ == "__main__":
-    print("Main program logic")
+    parser = argparse.ArgumentParser(description='GridPP Analysis Script for Timepix data in the XYC format')
 
-    filename = "cas000"
+    parser.add_argument('folder', metavar='folder', type=str,
+                   help='a path to the folder containing files to be analysed.')
 
-    counts = {'alpha': 0, 'beta': 0, 'gamma': 0, 'proton': 0, 'muon': 0, 'other': 0}
+    args = parser.parse_args()
+
+    # Set up our final output, which will eventually be a JSON file. This is just some metadata that the user might
+    # not always need - but can be pretty useful in some situations.
 
     final_output = {}
 
     final_output["metadata"] = {}
     final_output["metadata"]["generator"] = 'grid-analysis'
+    final_output["metadata"]["algorithm"] = 'lucid-utils-old'
+    final_output["metadata"]["node"] = get_hostname()
     final_output["metadata"]["gentime"] = time.time()
 
+    final_output = analyse_folder(args.folder, final_output)
 
-    print(final_output)
+    final_file = json.dumps(final_output, sort_keys=True, indent=4)
+
+    json_file = open("frames.json", "w")
+
+    json_file.write(final_file)
+
+    json_file.close()
 
