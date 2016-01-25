@@ -16,6 +16,8 @@ from lucid_utils import blobbing, xycreader
 
 from lucid_utils.classification.old_algorithm import classify
 
+import zipfile
+
 # To get arguments from user
 import argparse
 
@@ -35,6 +37,10 @@ def get_hostname():
         return "Unknown"
 
 
+def decompress(user_zip):
+    archive = zipfile.ZipFile(user_zip, 'r')
+    zipfile.ZipFile.extractall(archive, 'decompressed_frames')
+
 
 def analyse_frame(frame):
     clusters = blobbing.find(frame)
@@ -46,7 +52,6 @@ def analyse_frame(frame):
         counts[particle_type] += 1
 
     return counts
-
 
 def analyse_folder(folder, final_output):
 
@@ -78,7 +83,7 @@ def analyse_folder(folder, final_output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='GridPP Analysis Script for Timepix data in the XYC format')
 
-    parser.add_argument('folder', metavar='folder', type=str,
+    parser.add_argument('user_zip', metavar='user_zip', type=str,
                    help='a path to the folder containing files to be analysed.')
 
     args = parser.parse_args()
@@ -94,7 +99,9 @@ if __name__ == "__main__":
     final_output["metadata"]["node"] = get_hostname()
     final_output["metadata"]["gentime"] = time.time()
 
-    final_output = analyse_folder(args.folder, final_output)
+    decompress(args.user_zip)
+
+    final_output = analyse_folder('decompressed_frames', final_output)
 
     final_file = json.dumps(final_output, sort_keys=True, indent=4)
 

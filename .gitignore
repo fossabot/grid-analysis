@@ -59,3 +59,9 @@ target/
 .idea/
 
 frames.json
+
+lucid_utils/
+
+testdata.zip
+
+decompressed_frames/
