@@ -65,3 +65,7 @@ lucid_utils/
 testdata.zip
 
 decompressed_frames/
+
+grid-analysis-frames.csv
+
+frames.zip

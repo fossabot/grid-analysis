@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 
 grid-analysis analyse.py
@@ -21,63 +22,72 @@ import zipfile
 # To get arguments from user
 import argparse
 
-# For output use
-import json
+import os
+
+import csv
+
+import io
+
+import dscreader
 
 import time
 
-import os
-
-
-def get_hostname():
-    try:
-        with open("/etc/hostname", 'r') as f:
-            return f.read()
-    except IOError:
-        return "Unknown"
-
 
 def decompress(user_zip):
+    """
+    Decompress a ZIP file into a folder called 'decompressed_frames'
+    :param user_zip: The zip file to be decompressed
+    """
     archive = zipfile.ZipFile(user_zip, 'r')
     zipfile.ZipFile.extractall(archive, 'decompressed_frames')
 
 
-def analyse_frame(frame):
-    clusters = blobbing.find(frame)
+def analyse_folder(folder):
+    """
+    Analyse a folder of XYC formatted files from a Timepix radiation detector, saving the output into a memory stream.
 
-    counts = {'alpha': 0, 'beta': 0, 'gamma': 0, 'proton': 0, 'muon': 0, 'other': 0}
+    :param folder: The folder containg the files to be analysed
+    :return: A BytesIO representation of the CSV file
+    """
+    output = io.BytesIO()
 
-    for cluster in clusters:
-        particle_type = classify(cluster)
-        counts[particle_type] += 1
+    writer = csv.writer(output)
 
-    return counts
-
-def analyse_folder(folder, final_output):
+    writer.writerow(["Frame Name", "Capture Time", "Detector ID", "Bias Voltage", "Acquisition Time", "Alpha", "Beta", "Gamma", "Proton", "Muon", "Other"])
 
     files = []
-    final_output["frames"] = {}
 
-    for file in os.listdir(folder):
+    for f in os.listdir(folder):
         # We don't want to add DSC files to the list, they can't be read by the xyc reader!
-        if not file.endswith(".dsc"):
-            files.append(file)
+        if not f.endswith(".dsc"):
+            files.append(f)
 
     for file in files:
-
-        if file.endswith(".txt"):
-            filename = file[:-4]
-        else:
-            filename = file
-
         frame = xycreader.read(folder + "/" + file)
 
-        counts = analyse_frame(frame)
+        try:
+            dsc = dscreader.DscFile(folder + "/" + file + ".dsc")
+        except IOError:
+            dsc = None
+        # Analyse every frame...
+        clusters = blobbing.find(frame)
 
-        final_output["frames"][filename] = {}
-        final_output["frames"][filename]["counts"] = counts
+        counts = {'alpha': 0, 'beta': 0, 'gamma': 0, 'proton': 0, 'muon': 0, 'other': 0}
 
-    return final_output
+        for cluster in clusters:
+            particle_type = classify(cluster)
+            counts[particle_type] += 1
+
+        # Write the output of our analysis to the CSV file (well... the CSV file which is actually a bytes object)
+        if dsc is not None:
+            writer.writerow([file, dsc.getStartTime(), dsc.getChipId(), dsc.getBiasVoltage(), dsc.getAcqTime(),
+                            counts['alpha'], counts['beta'], counts['gamma'], counts['proton'], counts['muon'],
+                            counts['other']])
+        else:
+            writer.writerow([file, "", "", "", "", counts['alpha'], counts['beta'], counts['gamma'],
+                            counts['proton'], counts['muon'], counts['other']])
+
+    return output
 
 
 if __name__ == "__main__":
@@ -88,26 +98,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Set up our final output, which will eventually be a JSON file. This is just some metadata that the user might
-    # not always need - but can be pretty useful in some situations.
-
-    final_output = {}
-
-    final_output["metadata"] = {}
-    final_output["metadata"]["generator"] = 'grid-analysis'
-    final_output["metadata"]["algorithm"] = 'lucid-utils-old'
-    final_output["metadata"]["node"] = get_hostname()
-    final_output["metadata"]["gentime"] = time.time()
-
     decompress(args.user_zip)
 
-    final_output = analyse_folder('decompressed_frames', final_output)
+    output = analyse_folder('decompressed_frames')
 
-    final_file = json.dumps(final_output, sort_keys=True, indent=4)
-
-    json_file = open("frames.json", "w")
-
-    json_file.write(final_file)
-
-    json_file.close()
-
+    with open("grid-analysis-frames.csv", "wb") as f:
+        output.seek(0)
+        # Write the binary stream to the file. We do it here instead of line by line to save writing thousands of lines
+        # to a file. Quicker to keep things in memory up until we really need to write it.
+        f.write(output.getvalue())
