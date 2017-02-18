@@ -120,6 +120,7 @@ def grid_backend(j, zip_name):
     """
 
     # Set up a DiracFile object with the ZIP file the user specified
+    # With thanks to https://lhcb.github.io/second-analysis-steps/01-managing-files-with-ganga.html
     df = DiracFile(zip_name)
 
     df.put() # Put to the users default SE
@@ -127,11 +128,12 @@ def grid_backend(j, zip_name):
     j.inputfiles = [df, LocalFile('dscreader.py'), LocalFile('analyse.py')]
     j.outputfiles = [LocalFile('grid-analysis-frames.csv')]  # For now we'll download the output
     j.application.args = [df.namePattern]
-    # temporary force scotgrid, qmul doesn't work :(
     j.backend = Dirac()
+    # We can force somewhere to run here, QMUL isn't working atm.
     # https://twiki.cern.ch/twiki/bin/view/LHCb/FAQ/GangaLHCbFAQ#How_can_I_set_which_Grid_site_my
     j.backend.settings['Destination'] = 'LCG.UKI-NORTHGRID-LIV-HEP.uk'
-    #j.backend.settings['InputData'] = ''
+    # Don't have InputSandbox AND InputData!
+    j.backend.settings['InputData'] = ''
 
 def local_backend(j, zip_name):
     """
