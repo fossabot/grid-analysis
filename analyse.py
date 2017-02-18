@@ -15,7 +15,7 @@ from __future__ import print_function
 # Required for analysis of files
 from lucid_utils import blobbing, xycreader
 
-from lucid_utils.classification.old_algorithm import classify
+from lucid_utils.classification.lucid_algorithm import classify
 
 import zipfile
 

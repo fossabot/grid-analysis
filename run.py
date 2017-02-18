@@ -6,10 +6,12 @@ sys.path.append("/cvmfs/ganga.cern.ch/Ganga/install/LATEST/python/")
 from ganga import Job, File, LocalFile, Executable, DiracFile, Dirac
 import zipfile
 
+import time
+
 # To get arguments from user
 import argparse
 
-VERSION = str(2016121201)
+VERSION = str(20170218)
 
 
 def menu():
@@ -39,12 +41,16 @@ def menu():
 
 
 def submit_job_interactive():
+    """
+    Allow a user to interactively submit a job, either locally or on GridPP.
+    This will check that their input is valid and submit the job.
+    """
     job_name = raw_input("Job name? > ")
 
     foundzip = False
 
     while foundzip is False:
-        zip_name = raw_input("Path to ZIP file? > ")
+        zip_name = raw_input("Path to ZIP file? Full path on your system please! > ")
         if not zipfile.is_zipfile(zip_name):
             # Not a zip file - so need to get them to enter again!
             print("The file you have supplied is not a zip file!")
@@ -54,6 +60,7 @@ def submit_job_interactive():
 
     backend_chosen = False
     while backend_chosen is False:
+        print("Note: Choosing the grid backend will automatically upload input to DIRAC storage in your home area for your VO.")
         backend_choice = raw_input("Grid backend? [Y/N] > ")
         if backend_choice.lower() == "y":
             backend = "grid"
@@ -66,21 +73,24 @@ def submit_job_interactive():
 
     j = Job()
     j.name = "grid-analysis_" + job_name
-    # Tell Ganga it's running an executable: analyse.py
+    # Tell Ganga it's running an executable
     j.application = Executable()
     j.application.exe = File('run_analyse.sh')
-    j.application.args = [zip_name]
-    j.inputfiles = [LocalFile('frames.zip'), LocalFile('dscreader.py'), LocalFile('analyse.py')]
     if backend == "grid":
-        j.outputfiles = [DiracFile('grid-analysis-frames.csv')]
-        j.backend = Dirac()
+        grid_backend(j, zip_name, job_name)
     else:
-        j.outputfiles = [LocalFile('grid-analysis-frames.csv')]
+        local_backend(j, zip_name)
 
     j.submit()
 
 
 def submit_job(job_name, zip_name, backend):
+    """
+    Allows a user non-interactively submit a job (eg from a script)
+    :param job_name: The name of the job (to be shown in DIRAC)
+    :param zip_name: The path to the zip file
+    :param backend: The backend to run, local or grid
+    """
 
     if not zipfile.is_zipfile(zip_name):
         # Not a zip file - so need to get them to enter again!
@@ -89,13 +99,50 @@ def submit_job(job_name, zip_name, backend):
 
     j = Job()
     j.name = "grid-analysis_" + job_name
-    # Tell Ganga it's running an executable: analyse.py
+    # Tell Ganga it's running an executable
     j.application = Executable()
     j.application.exe = File('run_analyse.sh')
-    j.application.args = [zip_name]
-    j.inputfiles = [LocalFile('frames.zip'), LocalFile('dscreader.py'), LocalFile('analyse.py')]
-    j.outputfiles = [LocalFile('grid-analysis-frames.csv')]
+
+    if backend == "grid":
+        grid_backend(j, zip_name)
+    else:
+        local_backend(j, zip_name)
     j.submit()
+
+
+def grid_backend(j, zip_name):
+    """
+    Submit a job to the GridPP DIRAC instance. This is a lot more involved than the local one as we need to first
+    upload the data to a storage element. Then we need to actually get working on submitting the job!
+    :param j: The job
+    :param zip_name: The path to the zip file (locally)
+    :return:
+    """
+
+    # Set up a DiracFile object with the ZIP file the user specified
+    df = DiracFile(zip_name)
+
+    df.put() # Put to the users default SE
+
+    j.inputfiles = [df, LocalFile('dscreader.py'), LocalFile('analyse.py')]
+    j.outputfiles = [LocalFile('grid-analysis-frames.csv')]  # For now we'll download the output
+    j.application.args = [df.namePattern]
+    # temporary force scotgrid, qmul doesn't work :(
+    j.backend = Dirac()
+    # https://twiki.cern.ch/twiki/bin/view/LHCb/FAQ/GangaLHCbFAQ#How_can_I_set_which_Grid_site_my
+    j.backend.settings['Destination'] = 'LCG.UKI-NORTHGRID-LIV-HEP.uk'
+    #j.backend.settings['InputData'] = ''
+
+def local_backend(j, zip_name):
+    """
+    Submit a job to the local Ganga instance, and run it locally. No fancy stuff here, just all LocalFiles
+    :param j: The job
+    :param zip_name: The path to the zip file (locally)
+    :return:
+    """
+    j.inputfiles = [LocalFile(zip_name), LocalFile('dscreader.py'), LocalFile('analyse.py')]
+    j.outputfiles = [LocalFile('grid-analysis-frames.csv')]
+    j.application.args = [zip_name]
 
 
 def check_job_status():
