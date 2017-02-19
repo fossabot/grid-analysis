@@ -77,7 +77,7 @@ def submit_job_interactive():
     j.application = Executable()
     j.application.exe = File('run_analyse.sh')
     if backend == "grid":
-        grid_backend(j, zip_name, job_name)
+        grid_backend(j, zip_name)
     else:
         local_backend(j, zip_name)
 
