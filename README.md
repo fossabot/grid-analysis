@@ -1,4 +1,6 @@
 # grid-analysis
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fwillfurnell%2Fgrid-analysis.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fwillfurnell%2Fgrid-analysis?ref=badge_shield)
+
 
 grid-analysis allows you to upload and analyse large datasets of Timepix XYC files to the UK Computing Grid (GridPP)
 It's intended to make your life a bit easier as you don't need to worry about writing lots of different submission scripts, JDLs etc.
@@ -22,3 +24,6 @@ You may get asked to enter your certificate passphrase when using this software.
 This software has only been tested on the GridPP CernVM. It is written in Python 2 and requires access to CVMFS and Ganga.
 
 For more general instructions on setting up a CernVM or using Ganga, check out the GridPP user guide! https://www.gridpp.ac.uk/userguide/
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fwillfurnell%2Fgrid-analysis.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fwillfurnell%2Fgrid-analysis?ref=badge_large)
